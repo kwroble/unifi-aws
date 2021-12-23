@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Version 1.4.3
-# This is a startup script for UniFi Controller on Debian based Google Compute Engine instances.
+# This is a startup script for UniFi Controller on Debian based AWS EC2 instances.
 # For instructions and how-to:  https://metis.fi/en/2018/02/unifi-on-gcp/
 # For comments and code walkthrough:  https://metis.fi/en/2018/02/gcp-unifi-code/
 #
@@ -13,9 +13,9 @@
 # Set up logging for unattended scripts and UniFi's MongoDB log
 # Variables $LOG and $MONGOLOG are used later on in the script.
 #
-LOG="/var/log/unifi/gcp-unifi.log"
-if [ ! -f /etc/logrotate.d/gcp-unifi.conf ]; then
-	cat > /etc/logrotate.d/gcp-unifi.conf <<_EOF
+LOG="/var/log/unifi/aws-unifi.log"
+if [ ! -f /etc/logrotate.d/aws-unifi.conf ]; then
+	cat > /etc/logrotate.d/aws-unifi.conf <<_EOF
 $LOG {
 	monthly
 	rotate 4
@@ -53,9 +53,16 @@ fi
 
 ###########################################################
 #
+# Get TOKEN for metadata retrievals below
+#
+TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
+&& curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/
+
+###########################################################
+#
 # Update DynDNS as early in the script as possible
 #
-ddns=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/ddns-url")
+ddns=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/ddns-url")
 if [ ${ddns} ]; then
 	curl -fs ${ddns}
 	echo "Dynamic DNS accessed"
@@ -101,7 +108,7 @@ fi
 # Required preliminiaries
 if [ ! -f /usr/share/misc/apt-upgraded-1 ]; then
 	export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn    # For CGP packages
-	curl -Lfs https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -    # For CGP packages
+	#curl -Lfs https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -    # For CGP packages
 	apt-get -qq update -y >/dev/null
 	DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y >/dev/null    # GRUB upgrades require special flags
 	rm /usr/share/misc/apt-upgraded    # Old flag file
@@ -192,13 +199,13 @@ fi
 #
 apt -qq autoremove --purge
 apt -qq clean
-curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+#curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
 
 ###########################################################
 #
 # Set the time zone
 #
-tz=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/timezone")
+tz=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/timezone")
 if [ ${tz} ] && [ -f /usr/share/zoneinfo/${tz} ]; then
 	apt-get -qq install -y dbus >/dev/null
 	if ! systemctl start dbus; then
@@ -289,38 +296,38 @@ fi
 #
 # Set up daily backup to a bucket after 01:00
 #
-bucket=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/bucket")
-if [ ${bucket} ]; then
-	cat > /etc/systemd/system/unifi-backup.service <<_EOF
-[Unit]
-Description=Daily backup to ${bucket} service
-After=network-online.target
-Wants=network-online.target
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/gsutil rsync -r -d /var/lib/unifi/backup gs://$bucket
-_EOF
-
-	cat > /etc/systemd/system/unifi-backup.timer <<_EOF
-[Unit]
-Description=Daily backup to ${bucket} timer
-[Timer]
-OnCalendar=1:00
-RandomizedDelaySec=30m
-[Install]
-WantedBy=timers.target
-_EOF
-	systemctl daemon-reload
-	systemctl start unifi-backup.timer
-	echo "Backups to ${bucket} set up"
-fi
+#bucket=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/bucket")
+#if [ ${bucket} ]; then
+#	cat > /etc/systemd/system/unifi-backup.service <<_EOF
+#[Unit]
+#Description=Daily backup to ${bucket} service
+#After=network-online.target
+#Wants=network-online.target
+#[Service]
+#Type=oneshot
+#ExecStart=/usr/bin/gsutil rsync -r -d /var/lib/unifi/backup gs://$bucket
+#_EOF
+#
+#	cat > /etc/systemd/system/unifi-backup.timer <<_EOF
+#[Unit]
+#Description=Daily backup to ${bucket} timer
+#[Timer]
+#OnCalendar=1:00
+#RandomizedDelaySec=30m
+#[Install]
+#WantedBy=timers.target
+#_EOF
+#	systemctl daemon-reload
+#	systemctl start unifi-backup.timer
+#	echo "Backups to ${bucket} set up"
+#fi
 
 ###########################################################
 #
 # Adjust Java heap (advanced setup)
 #
-# xms=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/xms")
-# xmx=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/xmx")
+# xms=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/xms")
+# xmx=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/xmx")
 # if [ ${xms} ] || [ ${xmx} ]; then touch /usr/share/misc/java-heap-adjusted; fi
 #
 # if [ -e /usr/share/misc/java-heap-adjusted ]; then
@@ -351,7 +358,7 @@ fi
 #
 # Set up Let's Encrypt
 #
-dnsname=$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/dns-name")
+dnsname=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/dns-name")
 if [ -z ${dnsname} ]; then exit 0; fi
 privkey=/etc/letsencrypt/live/${dnsname}/privkey.pem
 pubcrt=/etc/letsencrypt/live/${dnsname}/cert.pem

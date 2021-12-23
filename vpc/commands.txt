@@ -1,0 +1,11 @@
+# Run the aws configure command to set your access and secret keys
+aws configure
+
+# Initialize the terraform configuration
+terraform init -backend-config="bucket=wroble-79347" -backend-config="region=us-east-1" -backend-config="dynamodb_table=wroble-tfstatelock-79347"
+
+# Plan the terraform deployment
+terraform plan -out vpc.tfplan
+
+# Apply the deployment
+terraform apply "vpc.tfplan"

@@ -1,17 +1,9 @@
 variable "region" {
-  default = "us-east1"
-}
-
-variable "zone" {
-  default = "us-east1-b"
-}
-
-variable "project" {
-  default = "unifi-controller-kyle"
+  default = "us-east-1"
 }
 
 variable "bucket" {
-  description = "Name of storage bucket used to store Unifi backups"
+  description = "Name of s3 bucket used to store Unifi backups"
   default = "unifi-controller-kyle-bucket"
 }
 

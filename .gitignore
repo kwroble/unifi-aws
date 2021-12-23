@@ -1,1 +1,3 @@
 prod-svc-creds.json
+*.terraform*
+*tfplan*
