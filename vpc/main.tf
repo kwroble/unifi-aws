@@ -15,6 +15,9 @@ module "vpc" {
   name = "unifi-vpc"
   cidr = var.vpc_cidr_range
 
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
   azs            = slice(data.aws_availability_zones.azs.names, 0, 2)
   public_subnets = var.public_subnets
 
@@ -35,6 +38,10 @@ output "vpc_id" {
 
 output "public_subnets" {
   value = module.vpc.public_subnets
+}
+
+output "vpc_cidr_block" {
+  value = module.vpc.vpc_cidr_block
 }
 
 output "nat_public_ips"{

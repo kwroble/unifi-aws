@@ -53,16 +53,20 @@ fi
 
 ###########################################################
 #
-# Get TOKEN for metadata retrievals below
+# Install awscli so we can query tags of the instance
 #
-TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
-&& curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/
+apt-get -qq update -y >/dev/null
+apt-get -qq install python-pip -y >/dev/null
+pip install awscli
+INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
+REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
 
 ###########################################################
 #
 # Update DynDNS as early in the script as possible
 #
-ddns=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/ddns-url")
+TAG_NAME="ddns-url"
+ddns="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 if [ ${ddns} ]; then
 	curl -fs ${ddns}
 	echo "Dynamic DNS accessed"
@@ -205,7 +209,8 @@ apt -qq clean
 #
 # Set the time zone
 #
-tz=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/timezone")
+TAG_NAME="timezone"
+tz="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 if [ ${tz} ] && [ -f /usr/share/zoneinfo/${tz} ]; then
 	apt-get -qq install -y dbus >/dev/null
 	if ! systemctl start dbus; then
@@ -296,7 +301,8 @@ fi
 #
 # Set up daily backup to a bucket after 01:00
 #
-#bucket=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/bucket")
+#TAG_NAME="bucket"
+#bucket="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 #if [ ${bucket} ]; then
 #	cat > /etc/systemd/system/unifi-backup.service <<_EOF
 #[Unit]
@@ -326,8 +332,10 @@ fi
 #
 # Adjust Java heap (advanced setup)
 #
-# xms=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/xms")
-# xmx=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/xmx")
+# TAG_NAME="xms"
+# xms="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+# TAG_NAME="xmx"
+# xmx="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 # if [ ${xms} ] || [ ${xmx} ]; then touch /usr/share/misc/java-heap-adjusted; fi
 #
 # if [ -e /usr/share/misc/java-heap-adjusted ]; then
@@ -358,7 +366,8 @@ fi
 #
 # Set up Let's Encrypt
 #
-dnsname=$(curl -fs -H "X-aws-ec2-metadata-token: $TOKEN" -v "http://169.254.169.254/latest/meta-data/dns-name")
+# TAG_NAME="dns-name"
+# dnsname="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 if [ -z ${dnsname} ]; then exit 0; fi
 privkey=/etc/letsencrypt/live/${dnsname}/privkey.pem
 pubcrt=/etc/letsencrypt/live/${dnsname}/cert.pem
@@ -484,7 +493,7 @@ chmod a+x /etc/letsencrypt/renewal-hooks/deploy/unifi
 # Write a script to acquire the first certificate (for a systemd timer)
 cat > /usr/local/sbin/certbotrun.sh <<_EOF
 #! /bin/sh
-extIP=\$(curl -fs -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+extIP=\$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
 dnsIP=\$(getent hosts ${dnsname} | cut -d " " -f 1)
 
 echo >> $LOG
