@@ -25,7 +25,7 @@ variable "network_state_region" {
 }
 
 variable "ddns_url" {
-  default = "http://freedns.afraid.org/dynamic/update.php?M3JlbzFMQVNzdVN5UUdmR0pkdHo6MTgwMDcwNzI="
+  default = "https://freedns.afraid.org/dynamic/update.php?M3JlbzFMQVNzdVN5UUdmR0pkdHo6MTgwMDcwNzE="
 }
 
 variable "timezone" {
@@ -33,5 +33,20 @@ variable "timezone" {
 }
 
 variable "dns_name" {
-  default = "king.thomastech.net"
+  default = "madelyn.mooo.com"
+}
+
+variable "bucket" {
+  description = "Name of s3 bucket used to store Unifi backups"
+  default = "unifi-controller-kyle-bucket"
+}
+
+variable "unifi_ports_tcp" {
+  description = "TCP ingress ports"
+  default = ["443", "6789", "80", "8080", "8443", "8843", "8880"]
+}
+
+variable "unifi_ports_udp" {
+  description = "UDP ingress ports"
+  default = ["3478"]
 }

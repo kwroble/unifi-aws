@@ -50,6 +50,28 @@ resource "aws_security_group" "unifi" {
     cidr_blocks      = ["70.142.44.29/32"]
   }
 
+  dynamic "ingress" {
+    for_each         = var.unifi_ports_tcp
+    content{
+      from_port        = ingress.value
+      to_port          = ingress.value
+      protocol         = "tcp"
+      description      = "TCP ingress ports"
+      cidr_blocks      = ["0.0.0.0/0"]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each         = var.unifi_ports_udp
+    content{
+      from_port        = ingress.value
+      to_port          = ingress.value
+      protocol         = "udp"
+      description      = "UDP ingress ports"
+      cidr_blocks      = ["0.0.0.0/0"]
+    }
+  }
+
   egress {
     from_port        = 0
     to_port          = 0
@@ -111,6 +133,7 @@ module "ec2_instance" {
   vpc_security_group_ids = [aws_security_group.unifi.id]
   subnet_id              = data.terraform_remote_state.network.outputs.public_subnets[0]
   associate_public_ip_address = true
+  user_data_base64 = filebase64("${path.module}/startup.sh.gz")
 
   tags = {
     Terraform   = "true"

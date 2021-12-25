@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 # Version 1.4.3
 # This is a startup script for UniFi Controller on Debian based AWS EC2 instances.
@@ -57,7 +57,7 @@ fi
 #
 apt-get -qq update -y >/dev/null
 apt-get -qq install python-pip -y >/dev/null
-pip install awscli
+yes | pip install awscli
 INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
 REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
 
