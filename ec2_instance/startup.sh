@@ -301,32 +301,32 @@ fi
 #
 # Set up daily backup to a bucket after 01:00
 #
-#TAG_NAME="bucket"
-#bucket="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
-#if [ ${bucket} ]; then
-#	cat > /etc/systemd/system/unifi-backup.service <<_EOF
-#[Unit]
-#Description=Daily backup to ${bucket} service
-#After=network-online.target
-#Wants=network-online.target
-#[Service]
-#Type=oneshot
-#ExecStart=/usr/bin/gsutil rsync -r -d /var/lib/unifi/backup gs://$bucket
-#_EOF
-#
-#	cat > /etc/systemd/system/unifi-backup.timer <<_EOF
-#[Unit]
-#Description=Daily backup to ${bucket} timer
-#[Timer]
-#OnCalendar=1:00
-#RandomizedDelaySec=30m
-#[Install]
-#WantedBy=timers.target
-#_EOF
-#	systemctl daemon-reload
-#	systemctl start unifi-backup.timer
-#	echo "Backups to ${bucket} set up"
-#fi
+TAG_NAME="bucket"
+bucket="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+if [ ${bucket} ]; then
+	cat > /etc/systemd/system/unifi-backup.service <<_EOF
+[Unit]
+Description=Daily backup to ${bucket} service
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/gsutil rsync -r -d /var/lib/unifi/backup gs://$bucket
+_EOF
+
+	cat > /etc/systemd/system/unifi-backup.timer <<_EOF
+[Unit]
+Description=Daily backup to ${bucket} timer
+[Timer]
+OnCalendar=1:00
+RandomizedDelaySec=30m
+[Install]
+WantedBy=timers.target
+_EOF
+	systemctl daemon-reload
+	systemctl start unifi-backup.timer
+	echo "Backups to ${bucket} set up"
+fi
 
 ###########################################################
 #
